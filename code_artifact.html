@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お問い合せアプリ - カラフルエディション</title>
+    <style>
+        /* --- デザインシステム & カラフルトークン --- */
+        :root {
+            --color-pink: #FF1493;
+            --color-orange: #FF8C00;
+            --color-yellow: #FFD700;
+            --color-green: #32CD32;
+            --color-blue: #00BFFF;
+            --color-purple: #9400D3;
+            --text-dark: #2C3E50;
+            --bg-light: #F8F9FA;
+            --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+            --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* 全体初期化 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Hiragino Kaku Gothic ProN', 'Segoe UI', Meiryo, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(135deg, #FFE4E1 0%, #E0FFFF 50%, #FAF0E6 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--text-dark);
+        }
+
+        /* スマホ向けモックアップ枠 */
+        .phone-wrapper {
+            width: 100%;
+            max-width: 412px;
+            height: 844px;
+            background-color: #FFFFFF;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+            border-radius: 40px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            border: 8px solid #222222;
+        }
+
+        /* スタイリッシュでカラフルなグラデーションヘッダー */
+        header {
+            background: linear-gradient(45deg, var(--color-pink), var(--color-orange), var(--color-blue), var(--color-purple));
+            background-size: 300% 300%;
+            animation: colorfulGradient 12s ease infinite;
+            color: #FFFFFF;
+            padding: 20px 16px 16px;
+            text-align: center;
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 10;
+        }
+
+        @keyframes colorfulGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* メインスクロールエリア */
+        .scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            background-color: var(--bg-light);
+            padding: 16px;
+            padding-bottom: 90px; /* ナビゲーション用の余白 */
+            scroll-behavior: smooth;
+        }
+
+        /* 画面ごとのトランジション */
+        .screen {
+            display: none;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 1. AIに質問画面 (チャットUI) --- */
+        .chat-layout {
+            display: flex;
+            flex-direction: column;
+            height: 610px;
+        }
+
+        .chat-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            position: relative;
+        }
+
+        .chat-bubble.bot {
+            background-color: #FFFFFF;
+            color: var(--text-dark);
+            align-self: flex-start;
+            border-radius: 20px 20px 20px 4px;
+            border: 1px solid #E2E8F0;
+        }
+
+        .chat-bubble.user {
+            background: linear-gradient(135deg, var(--color-blue), var(--color-purple));
+            color: #FFFFFF;
+            align-self: flex-end;
+            border-radius: 20px 20px 4px 20px;
+            font-weight: 500;
+        }
+
+        .chat-time {
+            font-size: 0.65rem;
+            color: #A0AEC0;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .chat-bubble.user .chat-time {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* ローディングインジケーター */
+        .chat-bubble.loading {
+            background-color: #F0F4F8;
+            border: 1px dashed #CBD5E0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #718096;
+            font-weight: bold;
+        }
+
+        .loader-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .loader-dots span {
+            width: 8px;
+            height: 8px;
+            background: linear-gradient(135deg, var(--color-pink), var(--color-orange));
+            border-radius: 50%;
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+
+        .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* 問い合わせへの遷移用ボタン */
+        .direct-inquiry-box {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .btn-direct-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, var(--color-pink), var(--color-orange), var(--color-yellow));
+            color: white;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 800;
+            padding: 10px 18px;
+            border-radius: 20px;
+            border: none;
+            box-shadow: 0 4px 12px rgba(255, 20, 147, 0.3);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-direct-link:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 6px rgba(255, 20, 147, 0.2);
+        }
+
+        /* チャットフッター入力 */
+        .chat-footer {
+            display: flex;
+            gap: 10px;
+            padding: 12px 0;
+            border-top: 1px solid #E2E8F0;
+            background-color: white;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #E2E8F0;
+            border-radius: 24px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        .chat-input:focus {
+            border-color: var(--color-blue);
+        }
+
+        .chat-send-btn {
+            background: linear-gradient(135deg, var(--color-blue), var(--color-purple));
+            border: none;
+            color: white;
+            padding: 0 16px;
+            border-radius: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 191, 255, 0.3);
+            transition: var(--transition-smooth);
+        }
+
+        .chat-send-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* --- 2. よくある質問画面 --- */
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin: 20px 0 10px;
+            padding-left: 10px;
+            border-left: 5px solid;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        /* セクションごとにカラフルなアクセント */
+        .sec-join { border-left-color: var(--color-pink); color: var(--color-pink); }
+        .sec-content { border-left-color: var(--color-orange); color: var(--color-orange); }
+        .sec-level { border-left-color: var(--color-green); color: var(--color-green); }
+        .sec-date { border-left-color: var(--color-blue); color: var(--color-blue); }
+
+        .faq-card {
+            background: #FFFFFF;
+            border-radius: 18px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: var(--card-shadow);
+            border: 2px solid transparent;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+        }
+
+        .faq-card:active {
+            transform: scale(0.98);
+        }
+
+        .faq-q-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .faq-icon-q {
+            background: linear-gradient(135deg, var(--color-pink), var(--color-orange));
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 900;
+            padding: 2px 6px;
+            border-radius: 6px;
+            margin-top: 2px;
+        }
+
+        .faq-question {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #1A252F;
+            flex: 1;
+        }
+
+        .faq-toggle {
+            font-size: 1.1rem;
+            color: #A0AEC0;
+            transition: var(--transition-smooth);
+        }
+
+        .faq-answer {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #E2E8F0;
+            font-size: 0.88rem;
+            color: #4A5568;
+            line-height: 1.5;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        /* アコーディオン開閉状態 */
+        .faq-card.open {
+            border-color: rgba(255, 20, 147, 0.3);
+        }
+        .faq-card.open .faq-toggle {
+            transform: rotate(180deg);
+            color: var(--color-pink);
+        }
+        .faq-card.open .faq-answer {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 3. 問い合わせ画面 --- */
+        .form-card {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #4A5568;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .form-group label::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--color-orange);
+        }
+
+        /* 各フォームパーツフォーカス時にカラフルな枠線を適用 */
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #E2E8F0;
+            border-radius: 14px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: var(--transition-smooth);
+            background-color: #F8FAFC;
+        }
+
+        .form-input:focus {
+            background-color: #FFFFFF;
+            border-color: var(--color-orange);
+            box-shadow: 0 0 0 4px rgba(255, 140, 0, 0.15);
+        }
+
+        /* 送信ボタンの超カラフルポップデザイン */
+        .btn-submit {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--color-pink), var(--color-orange), var(--color-yellow));
+            background-size: 200% 100%;
+            border: none;
+            border-radius: 30px;
+            color: #FFFFFF;
+            font-size: 1.05rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(255, 110, 0, 0.35);
+            transition: var(--transition-smooth);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-submit:active {
+            transform: scale(0.96);
+            box-shadow: 0 5px 12px rgba(255, 110, 0, 0.2);
+        }
+
+        /* --- 4. 履歴画面 --- */
+        .history-card {
+            background: white;
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 14px;
+            box-shadow: var(--card-shadow);
+            border: 2px solid transparent;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+        }
+
+        .history-card:active {
+            transform: scale(0.98);
+            background-color: #F8FAFC;
+        }
+
+        .history-main-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex: 1;
+        }
+
+        /* カテゴリに応じたカラフル丸型アイコン */
+        .history-badge {
+            width: 46px;
+            height: 46px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.3rem;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .badge-join { background: linear-gradient(135deg, var(--color-pink), #FF69B4); }
+        .badge-content { background: linear-gradient(135deg, var(--color-orange), #FFA500); }
+        .badge-level { background: linear-gradient(135deg, var(--color-green), #00FF7F); }
+        .badge-date { background: linear-gradient(135deg, var(--color-blue), #87CEFA); }
+        .badge-other { background: linear-gradient(135deg, var(--color-purple), #EE82EE); }
+
+        .history-texts {
+            flex: 1;
+        }
+
+        .history-row-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .history-name {
+            font-weight: 800;
+            font-size: 0.95rem;
+            color: #1A252F;
+        }
+
+        .history-time {
+            font-size: 0.75rem;
+            color: #A0AEC0;
+        }
+
+        .history-category {
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .cat-join-label { background-color: #FFF0F5; color: var(--color-pink); }
+        .cat-content-label { background-color: #FFF5EE; color: var(--color-orange); }
+        .cat-level-label { background-color: #F0FFF0; color: var(--color-green); }
+        .cat-date-label { background-color: #F0F8FF; color: var(--color-blue); }
+        .cat-other-label { background-color: #F8F8FF; color: var(--color-purple); }
+
+        .history-detail-summary {
+            font-size: 0.85rem;
+            color: #718096;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        .history-status-badge {
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 8px;
+            background-color: #E2E8F0;
+            color: #4A5568;
+        }
+
+        .status-done {
+            background-color: #E6FFFA;
+            color: #319795;
+            border: 1px solid #B2F5EA;
+        }
+
+        .status-wait {
+            background-color: #FFFAF0;
+            color: #DD6B20;
+            border: 1px solid #FEEBC8;
+        }
+
+        /* 詳細モーダル */
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--transition-smooth);
+        }
+
+        .modal.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            width: 100%;
+            background: white;
+            border-radius: 32px 32px 0 0;
+            padding: 24px;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
+            transform: translateY(100%);
+            transition: var(--transition-smooth);
+        }
+
+        .modal.open .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+        }
+
+        .modal-close-btn {
+            background: #EDF2F7;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-item {
+            margin-bottom: 16px;
+        }
+
+        .modal-label {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #A0AEC0;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .modal-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #2D3748;
+            line-height: 1.4;
+        }
+
+        .modal-reply-box {
+            background-color: #F7FAFC;
+            border-left: 4px solid var(--color-green);
+            padding: 12px;
+            border-radius: 0 12px 12px 0;
+            margin-top: 6px;
+        }
+
+        /* --- プレミアム ボトムナビゲーション --- */
+        nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 74px;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-bottom: 12px;
+            z-index: 20;
+        }
+
+        .nav-tab {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #A0AEC0;
+            cursor: pointer;
+            font-size: 0.72rem;
+            font-weight: 800;
+            transition: var(--transition-smooth);
+            flex: 1;
+            height: 100%;
+            position: relative;
+        }
+
+        .nav-emoji {
+            font-size: 1.4rem;
+            margin-bottom: 2px;
+            transition: var(--transition-smooth);
+        }
+
+        /* タブごとのカラフルなアクティブカラー設計 */
+        .nav-tab.active[data-screen="ai"] { color: var(--color-blue); }
+        .nav-tab.active[data-screen="ai"] .nav-emoji { transform: scale(1.2); }
+
+        .nav-tab.active[data-screen="faq"] { color: var(--color-pink); }
+        .nav-tab.active[data-screen="faq"] .nav-emoji { transform: scale(1.2); }
+
+        .nav-tab.active[data-screen="form"] { color: var(--color-orange); }
+        .nav-tab.active[data-screen="form"] .nav-emoji { transform: scale(1.2); }
+
+        .nav-tab.active[data-screen="history"] { color: var(--color-green); }
+        .nav-tab.active[data-screen="history"] .nav-emoji { transform: scale(1.2); }
+
+        /* タブの上部にカラフルラインを表示するインジケータ */
+        .nav-tab::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 0;
+            height: 4px;
+            border-radius: 0 0 4px 4px;
+            transition: var(--transition-smooth);
+        }
+
+        .nav-tab.active[data-screen="ai"]::after { width: 40%; background-color: var(--color-blue); }
+        .nav-tab.active[data-screen="faq"]::after { width: 40%; background-color: var(--color-pink); }
+        .nav-tab.active[data-screen="form"]::after { width: 40%; background-color: var(--color-orange); }
+        .nav-tab.active[data-screen="history"]::after { width: 40%; background-color: var(--color-green); }
+
+    </style>
+</head>
+<body>
+
+    <div class="phone-wrapper">
+        <!-- グラデーションダイナミックヘッダー（初期画面はAIアシスタントに設定） -->
+        <header id="main-header">AIアシスタント</header>
+
+        <!-- メイン画面スクローラー -->
+        <div class="scroll-container" id="scroll-wrapper">
+
+            <!-- SCREEN 1: AIに質問画面 (初期起動時にactive) -->
+            <div id="screen-ai" class="screen active">
+                <div class="chat-layout">
+                    <div class="chat-scroll" id="chat-box">
+                        <div class="chat-bubble bot">
+                            こんにちは！✨AIアシスタントです。研修に関するご不明点やお困りのことがあれば、何でもお気軽に質問してくださいね！💬
+                            <div class="chat-time">本日 15:00</div>
+                        </div>
+                    </div>
+                    <div class="chat-footer">
+                        <input type="text" id="chat-input-text" class="chat-input" placeholder="質問を入力..." onkeypress="handleChatEnter(event)">
+                        <button class="chat-send-btn" onclick="sendChatMessage()">✨ 質問する</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCREEN 2: よくある質問 (FAQ) -->
+            <div id="screen-faq" class="screen">
+                <!-- 参加カテゴリ -->
+                <div class="section-title sec-join">👉 参加に関する質問</div>
+                <div class="faq-card" onclick="toggleFaq(this)">
+                    <div class="faq-q-wrapper">
+                        <span class="faq-icon-q">Q</span>
+                        <div class="faq-question">誰でも参加できますか？</div>
+                        <span class="faq-toggle">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        本研修は公募制となっており、新入社員および既存社員の一部が対象です。募集要項に基づき選考・参加が決定されます。
+                    </div>
+                </div>
+
+                <!-- 内容カテゴリ -->
+                <div class="section-title sec-content">📚 研修内容に関する質問</div>
+                <div class="faq-card" onclick="toggleFaq(this)">
+                    <div class="faq-q-wrapper">
+                        <span class="faq-icon-q">Q</span>
+                        <div class="faq-question">AI×プロダクト開発研修では何を学びますか？</div>
+                        <span class="faq-toggle">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        AIにプロダクト開発を任せる手法（バイブコーディング）や、リサーチ・課題設定の進め方を実践的に学びます。
+                    </div>
+                </div>
+                
+                <div class="faq-card" onclick="toggleFaq(this)">
+                    <div class="faq-q-wrapper">
+                        <span class="faq-icon-q">Q</span>
+                        <div class="faq-question">リサーチ・課題設定はなぜ重要ですか？</div>
+                        <span class="faq-toggle">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        プロダクト開発の初期段階でのリサーチ and 課題設定の質が、その後のアウトプット品質に大きく影響するためです。
+                    </div>
+                </div>
+
+                <!-- 難易度カテゴリ -->
+                <div class="section-title sec-level">💡 難易度・前提スキルについて</div>
+                <div class="faq-card" onclick="toggleFaq(this)">
+                    <div class="faq-q-wrapper">
+                        <span class="faq-icon-q">Q</span>
+                        <div class="faq-question">IT未経験でも参加できますか？</div>
+                        <span class="faq-toggle">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        デジタル基礎知識や構造化思考から学ぶ構成となっており、未経験の方でも問題なく参加可能です。
+                    </div>
+                </div>
+
+                <!-- 日程カテゴリ -->
+                <div class="section-title sec-date">📅 日程スケジュールについて</div>
+                <div class="faq-card" onclick="toggleFaq(this)">
+                    <div class="faq-q-wrapper">
+                        <span class="faq-icon-q">Q</span>
+                        <div class="faq-question">研修期間はどのくらいですか？</div>
+                        <span class="faq-toggle">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        本研修は複数日程で実施され、リサーチ・課題設定と開発パートを含む構成となっています。
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCREEN 3: お問い合わせ入力フォーム -->
+            <div id="screen-form" class="screen">
+                <div class="form-card">
+                    <form id="contact-form" onsubmit="handleFormSubmit(event)">
+                        <div class="form-group">
+                            <label for="form-name">氏名</label>
+                            <input type="text" id="form-name" class="form-input" placeholder="例：田中 一郎" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="form-empid">社員番号</label>
+                            <input type="text" id="form-empid" class="form-input" placeholder="例：S0001" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="form-email">メールアドレス</label>
+                            <input type="email" id="form-email" class="form-input" placeholder="example@company.com" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="form-category">カテゴリ</label>
+                            <select id="form-category" class="form-input" required>
+                                <option value="" disabled selected>選択してください</option>
+                                <option value="参加">参加</option>
+                                <option value="内容">内容</option>
+                                <option value="難易度">難易度</option>
+                                <option value="日程">日程</option>
+                                <option value="ツール">ツール</option>
+                                <option value="業務適用">業務適用</option>
+                                <option value="成果物">成果物</option>
+                                <option value="評価">評価</option>
+                                <option value="連携施策">連携施策</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="form-detail">問い合わせ詳細</label>
+                            <textarea id="form-detail" class="form-input" rows="4" placeholder="具体的なご質問内容をお書きください" required></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-submit">
+                            <span>🚀</span> 問い合わせ内容を送信する
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- SCREEN 4: 履歴画面 -->
+            <div id="screen-history" class="screen">
+                <!-- 問い合わせ一覧 -->
+                <div id="history-container">
+                    <!-- JSにてデータをレンダリングします -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- プレミアムボトムナビゲーション (AIアシスタントを左端に配置) -->
+        <nav>
+            <div class="nav-tab active" data-screen="ai" onclick="switchTab('ai', 'AIアシスタント')">
+                <div class="nav-emoji">🤖</div>
+                <div>AIに質問</div>
+            </div>
+            <div class="nav-tab" data-screen="faq" onclick="switchTab('faq', 'よくある質問')">
+                <div class="nav-emoji">💡</div>
+                <div>よくある質問</div>
+            </div>
+            <div class="nav-tab" data-screen="form" onclick="switchTab('form', '新規問い合わせ')">
+                <div class="nav-emoji">✉️</div>
+                <div>問い合わせ</div>
+            </div>
+            <div class="nav-tab" data-screen="history" onclick="switchTab('history', '問い合わせ履歴')">
+                <div class="nav-emoji">📜</div>
+                <div>履歴画面</div>
+            </div>
+        </nav>
+
+        <!-- 詳細確認モーダル -->
+        <div class="modal" id="detail-modal" onclick="closeModal(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h4 class="modal-title">お問い合わせ詳細</h4>
+                    <button class="modal-close-btn" onclick="toggleModal(false)">✕</button>
+                </div>
+                <div id="modal-body-content">
+                    <!-- JSで動的に詳細を展開します -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- アプリ制御スクリプト -->
+    <script>
+        // --- 1. データベースデータの定義 (CSVデータ準拠) ---
+        
+        // よくある質問DB
+        const faqDatabase = [
+            { id: "F001", category: "参加", title: "誰でも参加できますか？", body: "本研修は公募制となっており、新入社員および既存社員の一部が対象です。募集要項に基づき選考・参加が決定されます。" },
+            { id: "F002", category: "内容", title: "AI×プロダクト開発研修では何を学びますか？", body: "AIにプロダクト開発を任せる手法（バイブコーディング）や、リサーチ・課題設定の進め方を実践的に学びます。" },
+            { id: "F003", category: "難易度", title: "IT未経験でも参加できますか？", body: "デジタル基礎知識や構造化思考から学ぶ構成となっており、未経験の方でも参加可能です。" },
+            { id: "F004", category: "日程", title: "研修期間はどのくらいですか？", body: "本研修は複数日程で実施され、リサーチ・課題設定と開発パートを含む構成となっています。" },
+            { id: "F005", category: "内容", title: "リサーチ・課題設定はなぜ重要ですか？", body: "プロダクト開発の初期段階でのリサーチと課題設定の質が、その後のアウトプット品質に大きく影響するためです。" }
+        ];
+
+        // 問い合わせDB (初期データ)
+        const inquiryDatabase = [
+            {
+                id: "Q001",
+                empId: "S0001",
+                name: "田中 一郎",
+                category: "参加条件",
+                detail: "AI×プロダクト開発研修は誰でも参加できますか？",
+                status: "対応済み",
+                reply: "公募制となっており既存社員・新入社員ともに一部対象です。通達をご確認ください。",
+                time: "2026-06-20 10:15:00"
+            },
+            {
+                id: "Q002",
+                empId: "S0002",
+                name: "佐藤 花子",
+                category: "研修内容",
+                detail: "AIバイブコーディングとは何をするものですか？",
+                status: "対応済み",
+                reply: "AIにアプリ開発を任せる手法を学び要件定義から開発まで体験します。",
+                time: "2026-06-21 09:42:00"
+            },
+            {
+                id: "Q003",
+                empId: "S0003",
+                name: "鈴木 次郎",
+                category: "難易度",
+                detail: "IT未経験ですがついていけますか？",
+                status: "対応済み",
+                reply: "基礎から学ぶ構成のため未経験でも参加可能です。",
+                time: "2026-06-21 14:05:00"
+            },
+            {
+                id: "Q004",
+                empId: "S0004",
+                name: "高橋 美咲",
+                category: "日程",
+                detail: "研修は何日間ですか？",
+                status: "対応済み",
+                reply: "複数日程でリサーチと開発パートに分かれて実施されます。",
+                time: "2026-06-22 08:50:00"
+            }
+        ];
+
+        // --- 2. 画面切り替えとタブ制御 ---
+        function switchTab(screenId, titleText) {
+            // スクリーンの切り替え
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(`screen-${screenId}`).classList.add('active');
+
+            // ヘッダーのテキスト変更
+            document.getElementById('main-header').innerText = titleText;
+
+            // タブのアクティブクラス更新
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`.nav-tab[data-screen="${screenId}"]`).classList.add('active');
+
+            // 画面切り替え時にスクロール最上部に戻す
+            document.getElementById('scroll-wrapper').scrollTop = 0;
+        }
+
+        // --- 3. FAQアコーディオン開閉制御 ---
+        function toggleFaq(cardElement) {
+            const isOpen = cardElement.classList.contains('open');
+            
+            // すべてのアコーディオンを一度閉じる
+            document.querySelectorAll('.faq-card').forEach(card => {
+                card.classList.remove('open');
+            });
+
+            // 閉じていたものを開く
+            if (!isOpen) {
+                cardElement.classList.add('open');
+            }
+        }
+
+        // --- 4. 履歴画面のダイナミックレンダリング ---
+        function renderHistoryList() {
+            const container = document.getElementById('history-container');
+            container.innerHTML = ''; // クリア
+
+            inquiryDatabase.forEach((item, index) => {
+                // カテゴリに応じたアイコンとカラーバッジの設定
+                let badgeClass = 'badge-other';
+                let catLabelClass = 'cat-other-label';
+                let emoji = '💬';
+
+                if (item.category.includes('参加')) {
+                    badgeClass = 'badge-join';
+                    catLabelClass = 'cat-join-label';
+                    emoji = '👥';
+                } else if (item.category.includes('内容') || item.category.includes('研修内容')) {
+                    badgeClass = 'badge-content';
+                    catLabelClass = 'cat-content-label';
+                    emoji = '📖';
+                } else if (item.category.includes('難易度')) {
+                    badgeClass = 'badge-level';
+                    catLabelClass = 'cat-level-label';
+                    emoji = '📈';
+                } else if (item.category.includes('日程')) {
+                    badgeClass = 'badge-date';
+                    catLabelClass = 'cat-date-label';
+                    emoji = '📅';
+                }
+
+                // 対応ステータスのカラー
+                const statusClass = item.status === '対応済み' ? 'status-done' : 'status-wait';
+
+                const cardHtml = `
+                    <div class="history-card" onclick="openInquiryDetail(${index})">
+                        <div class="history-main-info">
+                            <div class="history-badge ${badgeClass}">${emoji}</div>
+                            <div class="history-texts">
+                                <div class="history-row-top">
+                                    <span class="history-name">${item.name}</span>
+                                    <span class="history-time">${item.time}</span>
+                                </div>
+                                <div>
+                                    <span class="history-category ${catLabelClass}">${item.category}</span>
+                                    <span class="history-status-badge ${statusClass}">${item.status}</span>
+                                </div>
+                                <div class="history-detail-summary">${item.detail}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        // --- 5. フォーム送信処理 & 履歴へのダイレクトスタック追加 ---
+        function handleFormSubmit(event) {
+            event.preventDefault();
+
+            // フォームから値を取得
+            const name = document.getElementById('form-name').value;
+            const empId = document.getElementById('form-empid').value;
+            const email = document.getElementById('form-email').value;
+            const category = document.getElementById('form-category').value;
+            const detail = document.getElementById('form-detail').value;
+
+            // 送信時の現在日時を生成
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const timeStr = `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
+
+            // 新規データオブジェクトを作成（直接反映）
+            const newInquiry = {
+                id: `Q${String(inquiryDatabase.length + 1).padStart(3, '0')}`,
+                empId: empId,
+                name: name,
+                category: category,
+                detail: detail,
+                status: "未対応",
+                reply: "ただいま担当者が確認中です。少々お待ちください。",
+                time: timeStr
+            };
+
+            // データベース配列の先頭に追加
+            inquiryDatabase.unshift(newInquiry);
+
+            // 履歴リストを再描画
+            renderHistoryList();
+
+            // フォーム入力をリセット
+            document.getElementById('contact-form').reset();
+
+            // 履歴画面へ自動スクロール遷移
+            switchTab('history', '問い合わせ履歴');
+        }
+
+        // --- 6. 詳細確認モーダル制御 ---
+        function openInquiryDetail(index) {
+            const data = inquiryDatabase[index];
+            const modalBody = document.getElementById('modal-body-content');
+
+            modalBody.innerHTML = `
+                <div class="modal-item">
+                    <div class="modal-label">問い合わせID / 日時</div>
+                    <div class="modal-value">${data.id} &nbsp; [${data.time}]</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label">氏名 (社員番号)</div>
+                    <div class="modal-value">${data.name} (${data.empId})</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label">カテゴリ</div>
+                    <div class="modal-value"><span class="history-category cat-join-label" style="font-size:0.9rem; padding: 4px 12px;">${data.category}</span></div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label">問い合わせ内容詳細</div>
+                    <div class="modal-value" style="background-color: #F8FAFC; padding: 12px; border-radius: 12px; margin-top:4px;">${data.detail}</div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label">現在の対応ステータス</div>
+                    <div class="modal-value">
+                        <span class="history-status-badge ${data.status === '対応済み' ? 'status-done' : 'status-wait'}" style="font-size:0.85rem; padding: 4px 10px;">
+                            ${data.status}
+                        </span>
+                    </div>
+                </div>
+                <div class="modal-item">
+                    <div class="modal-label">事務局からの回答</div>
+                    <div class="modal-reply-box">
+                        <div class="modal-value" style="font-style: italic;">${data.reply}</div>
+                    </div>
+                </div>
+            `;
+
+            toggleModal(true);
+        }
+
+        function toggleModal(show) {
+            const modal = document.getElementById('detail-modal');
+            if (show) {
+                modal.classList.add('open');
+            } else {
+                modal.classList.remove('open');
+            }
+        }
+
+        function closeModal(event) {
+            if (event.target.id === 'detail-modal') {
+                toggleModal(false);
+            }
+        }
+
+        // --- 7. AIとのインタラクティブチャット (Gemini 2.5 Flash API 実装) ---
+        function handleChatEnter(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+
+        // 問い合わせへジャンプし、AIに入力したチャット内容を自動プレフィルする関数
+        function goToInquiryForm(prefillMsg) {
+            document.getElementById('form-detail').value = prefillMsg;
+            switchTab('form', '新規問い合わせ');
+        }
+
+        // 指数バックオフ機能付きフェッチ
+        async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                if (retries === 0) throw error;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return fetchWithRetry(url, options, retries - 1, delay * 2);
+            }
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input-text');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const chatBox = document.getElementById('chat-box');
+
+            // 現在時刻文字列の取得
+            const now = new Date();
+            const timeStr = `本日 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            // ユーザー吹き出しの追加
+            const userBubble = `
+                <div class="chat-bubble user">
+                    ${message}
+                    <div class="chat-time">${timeStr}</div>
+                </div>
+            `;
+            chatBox.innerHTML += userBubble;
+            input.value = '';
+
+            // スクロールを最下部に固定
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // ローディングインジケーターの追加
+            const loadingId = "loading-" + Date.now();
+            const loadingBubble = `
+                <div class="chat-bubble bot loading" id="${loadingId}">
+                    <span>✨ AIが回答を考え中...</span>
+                    <div class="loader-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            `;
+            chatBox.innerHTML += loadingBubble;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // --- Gemini API連携パラメータ設計 ---
+            const apiKey = ""; // 実行環境からAPIキーが注入されます
+            const url = `https://genergenerativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`.replace('genergenerative', 'generative');
+
+            const systemPrompt = `
+あなたは「AI×プロダクト開発研修」のお問い合わせアシスタントです。
+以下の【よくある質問データベース】に登録されている情報だけを参照して、ユーザーの質問に回答してください。
+
+【よくある質問データベース】
+${JSON.stringify(faqDatabase, null, 2)}
+
+【ルール】
+1. ユーザーの質問に対し、データベースの中に明確に合致する回答がある場合のみ、その情報を正確に回答してください。
+2. データベースに存在しない情報や、少しでも曖昧・記述のない質問に関しては、絶対に推測で答えたり適当な文章を作ったりせず（ハルシネーションを防止するため）、必ず以下の文章「のみ」を回答として出力してください。
+「申し訳ありません、その質問に関するデータはデータベースにありません。担当者にお問い合わせください。」
+`;
+
+            try {
+                const responseData = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: message }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+
+                // ローディングの削除
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) loadingElement.remove();
+
+                const aiReplyText = responseData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "申し訳ありません、応答の解析に失敗しました。";
+
+                let botBubbleHtml = '';
+
+                // もし「データベースにありません」という文言が含まれる場合は、問い合わせボタンを出す
+                if (aiReplyText.includes("データベースにありません")) {
+                    const escapedMsg = message.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    botBubbleHtml = `
+                        <div class="chat-bubble bot">
+                            申し訳ありません、その質問に関するデータはデータベースにありません。お手数ですが、担当者へ直接お問い合わせいただけますでしょうか。<br>
+                            <div class="direct-inquiry-box">
+                                <button class="btn-direct-link" onclick="goToInquiryForm('${escapedMsg}')">
+                                    ✨ 問い合わせフォームへ進む
+                                </button>
+                            </div>
+                            <div class="chat-time">${timeStr}</div>
+                        </div>
+                    `;
+                } else {
+                    botBubbleHtml = `
+                        <div class="chat-bubble bot">
+                            ${aiReplyText.replace(/\n/g, '<br>')}
+                            <div class="chat-time">${timeStr}</div>
+                        </div>
+                    `;
+                }
+
+                chatBox.innerHTML += botBubbleHtml;
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+            } catch (error) {
+                // ローディングの削除
+                const loadingElement = document.getElementById(loadingId);
+                if (loadingElement) loadingElement.remove();
+
+                // エラー時の処理 (安全なローカル簡易自動マッチを代替発火)
+                const lowerMsg = message.toLowerCase();
+                let matchedFaq = null;
+
+                if (lowerMsg.includes('誰') || lowerMsg.includes('対象') || lowerMsg.includes('参加')) {
+                    matchedFaq = faqDatabase.find(f => f.id === "F001");
+                } else if (lowerMsg.includes('学ぶ') || lowerMsg.includes('内容') || lowerMsg.includes('プロダクト開発')) {
+                    matchedFaq = faqDatabase.find(f => f.id === "F002");
+                } else if (lowerMsg.includes('未経験') || lowerMsg.includes('初心者') || lowerMsg.includes('スキル')) {
+                    matchedFaq = faqDatabase.find(f => f.id === "F003");
+                } else if (lowerMsg.includes('期間') || lowerMsg.includes('日程') || lowerMsg.includes('スケジュール')) {
+                    matchedFaq = faqDatabase.find(f => f.id === "F004");
+                }
+
+                let botBubbleHtml = '';
+                if (matchedFaq) {
+                    botBubbleHtml = `
+                        <div class="chat-bubble bot">
+                            【${matchedFaq.category}に関して】<br>
+                            ${matchedFaq.body}
+                            <div class="chat-time">${timeStr}</div>
+                        </div>
+                    `;
+                } else {
+                    const escapedMsg = message.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    botBubbleHtml = `
+                        <div class="chat-bubble bot">
+                            申し訳ありません、その質問に関するデータはデータベースにありません。お手数ですが、担当者へ直接お問い合わせいただけますでしょうか。<br>
+                            <div class="direct-inquiry-box">
+                                <button class="btn-direct-link" onclick="goToInquiryForm('${escapedMsg}')">
+                                    ✨ 問い合わせフォームへ進む
+                                </button>
+                            </div>
+                            <div class="chat-time">${timeStr}</div>
+                        </div>
+                    `;
+                }
+
+                chatBox.innerHTML += botBubbleHtml;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        // ページロード時の初期レンダリング
+        window.addEventListener('DOMContentLoaded', () => {
+            renderHistoryList();
+        });
+    </script>
+</body>
+</html>
